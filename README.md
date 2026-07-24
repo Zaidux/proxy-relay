@@ -19,7 +19,7 @@ No root, no kernel modules, no inbound ports — just outbound TCP.
 
 ```bash
 # Via pip (recommended)
-pip install proxy-relay
+pip install riciplay-relay
 
 # Via Go
 go install github.com/Zaidux/proxy-relay@latest

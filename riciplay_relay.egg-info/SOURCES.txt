@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-riciplay_relay/__init__.py
-riciplay_relay/__main__.py
-riciplay_relay.egg-info/PKG-INFO
-riciplay_relay.egg-info/SOURCES.txt
-riciplay_relay.egg-info/dependency_links.txt
-riciplay_relay.egg-info/entry_points.txt
-riciplay_relay.egg-info/top_level.txt

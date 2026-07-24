@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-proxy_relay/__init__.py
-proxy_relay/__main__.py
-proxy_relay.egg-info/PKG-INFO
-proxy_relay.egg-info/SOURCES.txt
-proxy_relay.egg-info/dependency_links.txt
-proxy_relay.egg-info/entry_points.txt
-proxy_relay.egg-info/top_level.txt
