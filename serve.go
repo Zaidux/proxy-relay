@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -45,14 +46,52 @@ func generateKey() string {
 	return fmt.Sprintf("%s-%s-%s-%s", w1, w2, w3, w4)
 }
 
+func keyFilePath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(home, ".config", "proxy-relay")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "key"), nil
+}
+
+// loadOrCreateKey persists the generated key to disk so that a crash/restart
+// (e.g. under a supervisor like runit or systemd) reuses the same key instead
+// of silently breaking existing `connect` clients with a new one.
+func loadOrCreateKey(forceNew bool) string {
+	path, err := keyFilePath()
+	if err != nil {
+		log.Printf("warning: could not determine key file path (%v); using ephemeral key", err)
+		return generateKey()
+	}
+
+	if !forceNew {
+		if data, err := os.ReadFile(path); err == nil {
+			if k := strings.TrimSpace(string(data)); k != "" {
+				return k
+			}
+		}
+	}
+
+	k := generateKey()
+	if err := os.WriteFile(path, []byte(k+"\n"), 0600); err != nil {
+		log.Printf("warning: could not persist key (%v)", err)
+	}
+	return k
+}
+
 func runServe(args []string) {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	relayAddr := fs.String("relay", "localhost:9000", "Relay server address")
 	key := fs.String("key", "", "Custom key (auto-generated if empty)")
+	newKey := fs.Bool("new-key", false, "Force generation of a new key, overwriting any persisted one")
 	fs.Parse(args)
 
 	if *key == "" {
-		*key = generateKey()
+		*key = loadOrCreateKey(*newKey)
 	}
 
 	log.Printf("Connecting to relay: %s", *relayAddr)
@@ -80,8 +119,30 @@ func serveOnce(relayAddr, key string) error {
 	}
 	defer conn.Close()
 
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(15 * time.Second)
+	}
+
 	fmt.Fprintf(conn, "REGISTER %s\n", key)
 	log.Printf("registered with relay")
+
+	stopHeartbeat := make(chan struct{})
+	defer close(stopHeartbeat)
+	go func() {
+		ticker := time.NewTicker(20 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if _, err := fmt.Fprintf(conn, "PING\n"); err != nil {
+					return
+				}
+			case <-stopHeartbeat:
+				return
+			}
+		}
+	}()
 
 	reader := bufio.NewReader(conn)
 	for {
@@ -90,6 +151,9 @@ func serveOnce(relayAddr, key string) error {
 			return fmt.Errorf("relay connection lost: %w", err)
 		}
 		line = strings.TrimSpace(line)
+		if line == "" || line == "PING" {
+			continue
+		}
 
 		parts := strings.SplitN(line, " ", 3)
 		if len(parts) < 3 || parts[0] != "REQ" {
@@ -137,5 +201,3 @@ func handleRequest(relayAddr, reqID, dest string) {
 	<-done
 	log.Printf("req %s: completed", reqID)
 }
-
-var _ = os.Stderr

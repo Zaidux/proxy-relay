@@ -131,6 +131,7 @@ func (h *proxyHandler) handleHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(k, v)
 		}
 	}
+
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
@@ -141,6 +142,11 @@ func (h *proxyHandler) openTunnel(dest string) (net.Conn, error) {
 	conn, err := net.DialTimeout("tcp", h.relayAddr, 10*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("relay unreachable: %w", err)
+	}
+
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
+		tcpConn.SetKeepAlive(true)
+		tcpConn.SetKeepAlivePeriod(15 * time.Second)
 	}
 
 	fmt.Fprintf(conn, "CONNECT %s %s %s\n", h.key, reqID, dest)

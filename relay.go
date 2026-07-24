@@ -34,6 +34,10 @@ func runRelay(args []string) {
 			log.Printf("relay accept: %v", err)
 			continue
 		}
+		if tcpConn, ok := conn.(*net.TCPConn); ok {
+			tcpConn.SetKeepAlive(true)
+			tcpConn.SetKeepAlivePeriod(15 * time.Second)
+		}
 		go r.handle(conn)
 	}
 }
@@ -78,7 +82,9 @@ func (r *relayServer) handle(conn net.Conn) {
 		r.mu.Unlock()
 
 		log.Printf("serve registered with key: %s", key)
-		r.serveLoop(key, conn)
+		// Pass the same bufio.Reader through so any bytes already buffered
+		// from the socket (e.g. an early heartbeat) aren't silently dropped.
+		r.serveLoop(key, conn, reader)
 
 	case "CONNECT":
 		if len(cmd) < 4 {
@@ -138,7 +144,11 @@ func (r *relayServer) handle(conn net.Conn) {
 	}
 }
 
-func (r *relayServer) serveLoop(key string, conn net.Conn) {
+// serveLoop keeps the REGISTER connection open, resetting the read deadline
+// on every line received (heartbeat PINGs included). It reads from the same
+// bufio.Reader that handle() used for the REGISTER line, so nothing buffered
+// during that read is lost.
+func (r *relayServer) serveLoop(key string, conn net.Conn, reader *bufio.Reader) {
 	defer func() {
 		r.mu.Lock()
 		if r.serveConns[key] == conn {
@@ -148,10 +158,9 @@ func (r *relayServer) serveLoop(key string, conn net.Conn) {
 		log.Printf("serve disconnected: %s", key)
 	}()
 
-	buf := make([]byte, 1)
 	for {
 		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		_, err := conn.Read(buf)
+		_, err := reader.ReadString('\n')
 		if err != nil {
 			return
 		}
