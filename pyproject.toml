@@ -1,16 +1,16 @@
 [project]
-name = "proxy-relay"
+name = "riciplay-relay"
 version = "0.1.0"
 description = "Lightweight peer-to-peer IP relay — share your residential IP to bypass geo-blocks and IP-based blocking"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = []
 requires-python = ">=3.8"
 authors = [{name = "Zaidux", email = "zaiduabubakar777@gmail.com"}]
 keywords = ["proxy", "relay", "vpn", "ip", "residential", "bypass", "cloudflare"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Go",
     "Topic :: Internet :: Proxy Servers",
@@ -22,4 +22,4 @@ Homepage = "https://github.com/Zaidux/proxy-relay"
 Repository = "https://github.com/Zaidux/proxy-relay"
 
 [project.scripts]
-"proxy-relay" = "proxy_relay:main"
+"proxy-relay" = "riciplay_relay:main"

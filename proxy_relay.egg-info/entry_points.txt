@@ -1,0 +1,2 @@
+[console_scripts]
+proxy-relay = proxy_relay:main
