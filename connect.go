@@ -27,10 +27,22 @@ func runConnect(args []string) {
 	fs := flag.NewFlagSet("connect", flag.ExitOnError)
 	relayAddr := fs.String("relay", "localhost:9000", "Relay server address")
 	proxyAddr := fs.String("proxy", ":8080", "Local HTTP proxy listen address")
+	listenHost := fs.String("listen-host", "127.0.0.1",
+		"Address to bind the local HTTP proxy. 127.0.0.1 (default) keeps it "+
+			"private; pass 0.0.0.0 to expose it on the network")
 	fs.Parse(remaining)
 
+	// The local proxy is an unauthenticated open relay to the registered
+	// peer — publishing it lets anyone on the network egress through it.
+	if *listenHost != "127.0.0.1" && *listenHost != "localhost" {
+		fmt.Fprintf(os.Stderr,
+			"WARNING: proxy bound to %s — anyone who can reach this port can "+
+				"send traffic through the relay using your peer's IP.\n",
+			*listenHost)
+	}
+
 	log.Printf("relay %s  key %s", *relayAddr, key)
-	log.Printf("proxy listening on %s", *proxyAddr)
+	log.Printf("proxy listening on %s", proxyAddrFor(*listenHost, *proxyAddr))
 
 	handler := &proxyHandler{
 		relayAddr: *relayAddr,
@@ -38,17 +50,36 @@ func runConnect(args []string) {
 	}
 
 	srv := &http.Server{
-		Addr:         *proxyAddr,
+		Addr:         proxyAddrFor(*listenHost, *proxyAddr),
 		Handler:      handler,
 		ReadTimeout:  120 * time.Second,
 		WriteTimeout: 120 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("ready — HTTP_PROXY=http://localhost%s", *proxyAddr)
+	log.Printf("ready — HTTP_PROXY=http://%s", proxyAddrFor(*listenHost, *proxyAddr))
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("proxy: %v", err)
 	}
+}
+
+// proxyAddrFor joins a bind host with a `--proxy` value that may be a bare
+// port (":8080"), a host:port, or a bare port ("8080"). Keeping --proxy
+// backwards compatible means tolerating all three.
+func proxyAddrFor(host, spec string) string {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		spec = ":8080"
+	}
+	if strings.HasPrefix(spec, ":") {
+		return net.JoinHostPort(host, spec[1:])
+	}
+	if _, _, err := net.SplitHostPort(spec); err == nil {
+		// Already host:port — an explicit host in --proxy wins over
+		// --listen-host, so existing invocations keep working unchanged.
+		return spec
+	}
+	return net.JoinHostPort(host, spec)
 }
 
 type proxyHandler struct {

@@ -5,17 +5,25 @@ import (
 	"os"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, `proxy-relay %s — lightweight IP relay
 
 Usage:
-  proxy-relay relay  [--port=9000]            Start the matchmaker on a public VPS
-  proxy-relay serve  [--relay=host:port]       Share your residential IP (generates a key)
+  proxy-relay relay  [--port=9000] [--listen-host=127.0.0.1]
+                     Start the matchmaker on a public VPS
+  proxy-relay serve  [--relay=host:port]
+                     Share your residential IP (generates a key)
   proxy-relay connect <key> [--relay=host:port] [--proxy=:8080]
-                                               Use another device's IP as your proxy
+                       [--listen-host=127.0.0.1]
+                     Use another device's IP as your proxy
+
+  Both listeners bind 127.0.0.1 by default. A relay is unauthenticated, so
+  publishing it lets anyone who can reach the port tunnel through your
+  machine. Forward with "ssh -L <port>:127.0.0.1:<port>" instead, or pass
+  --listen-host=0.0.0.0 deliberately (a warning is printed).
 
 Examples:
   # On your home machine (User A):
@@ -24,7 +32,7 @@ Examples:
 
   # On the VPS where riciplay runs (User B):
   proxy-relay connect apple-tree-frog-lamp --relay=localhost:9000
-  # Sets up local HTTP proxy on :8080
+  # Sets up local HTTP proxy on 127.0.0.1:8080
 
   # Then in riciplay config:
   # {"proxy": "http://localhost:8080"}

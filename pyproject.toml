@@ -1,6 +1,6 @@
 [project]
 name = "riciplay-relay"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lightweight peer-to-peer IP relay — share your residential IP to bypass geo-blocks and IP-based blocking"
 readme = "README.md"
 license = "MIT"

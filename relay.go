@@ -15,18 +15,33 @@ import (
 func runRelay(args []string) {
 	fs := flag.NewFlagSet("relay", flag.ExitOnError)
 	port := fs.String("port", "9000", "Listen port")
+	listenHost := fs.String("listen-host", "127.0.0.1",
+		"Address to bind. 127.0.0.1 (default) keeps the relay private; "+
+			"pass 0.0.0.0 to accept registrations from the network")
 	fs.Parse(args)
+
+	// A published relay is unauthenticated: anyone who reaches it can
+	// REGISTER a key and CONNECT through it, using this box as an open
+	// proxy. Say so rather than letting it happen silently.
+	if *listenHost != "127.0.0.1" && *listenHost != "localhost" {
+		fmt.Fprintf(os.Stderr,
+			"WARNING: relay bound to %s — anyone who can reach this port can "+
+				"register a key and tunnel traffic through this machine.\n"+
+				"Prefer an SSH tunnel (-L 9000:127.0.0.1:9000) over a public bind.\n",
+			*listenHost)
+	}
 
 	r := &relayServer{
 		serveConns:  make(map[string]net.Conn),
 		pendingReqs: make(map[string]chan net.Conn),
 	}
 
-	ln, err := net.Listen("tcp", ":"+*port)
+	addr := net.JoinHostPort(*listenHost, *port)
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("relay: %v", err)
 	}
-	fmt.Fprintf(os.Stderr, "relay listening on :%s\n", *port)
+	fmt.Fprintf(os.Stderr, "relay listening on %s\n", addr)
 
 	for {
 		conn, err := ln.Accept()

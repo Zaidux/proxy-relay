@@ -36,6 +36,10 @@ chmod +x /usr/local/bin/proxy-relay
 proxy-relay relay --port=9000
 ```
 
+Both the relay and the local proxy bind `127.0.0.1` by default — they are
+**not** reachable from the network unless you ask for it. See
+[Network exposure](#network-exposure).
+
 ### 2. Share your IP (on your home device)
 ```bash
 proxy-relay serve --relay=<vps-ip>:9000
@@ -45,8 +49,31 @@ proxy-relay serve --relay=<vps-ip>:9000
 ### 3. Use someone's IP (on any machine)
 ```bash
 proxy-relay connect coral-echo-pine-dawn --relay=<vps-ip>:9000
-# Local HTTP proxy running on :8080
-export HTTP_PROXY=http://localhost:8080
+# Local HTTP proxy running on 127.0.0.1:8080
+export HTTP_PROXY=http://127.0.0.1:8080
+```
+
+### Network exposure
+
+A relay is **unauthenticated**: anyone who can reach its port can register a
+key and tunnel traffic through your machine. The local proxy is likewise an
+open relay to the registered peer. Both bind loopback by default for that
+reason.
+
+To let other devices reach them, forward the port over SSH instead of
+publishing it:
+
+```bash
+# from the other device
+ssh -N -L 9000:127.0.0.1:9000 user@vps
+```
+
+If you genuinely need a network bind, pass it explicitly — the process warns
+on startup:
+
+```bash
+proxy-relay relay --port=9000 --listen-host 0.0.0.0
+proxy-relay connect <key> --relay=<vps>:9000 --proxy=:8080 --listen-host 0.0.0.0
 ```
 
 ### Verify
